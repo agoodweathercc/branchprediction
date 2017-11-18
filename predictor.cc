@@ -1,30 +1,36 @@
 #include "predictor.h"
 #include <algorithm>    // std::max
-
+#include <cmath>
 #define PHT_CTR_MAX  3
 //chuan: for tournament predictor
 #define TOURNAMENT_CTR_MAX 3
 #define PHT_CTR_INIT 2
 
-#define PERCEPTRON_HIST_LEN 7
 #define HIST_LEN   6
 #define TOUR_LEN   10
 #define BHT_BIT_SIZE 11
 #define BHT_HIST_LENGTH 12
 #define PHT_LOCAL_CTR_INIT 2
 #define PHT_LOCAL_CTR_MAX  3
-#define UINT16      unsigned short int
-#define DIM1 2^PERCEPTRON_HIST_LEN
-#define DIM2 PERCEPTRON_HIST_LEN
-#define DIM3 PERCEPTRON_HIST_LEN
+#define UINT16   unsigned short int
+
+#define PERCEPTRON_HIST_LEN 12
+#define PERCEPTRON_BIT_SIZE 8
+#define OUTPUT_THRESHOLD 3
+// #define DIM1 pow(2, PERCEPTRON_HIST_LEN)
+// #define DIM2 pow(2, PERCEPTRON_BIT_SIZE)
+#define DIM1 1024
+#define DIM2 256
+#define DIM3 10
+#define H 1289281
 
 /////////////// STORAGE BUDGET JUSTIFICATION ////////////////
 // Total storage budget: 52KB + 32 bits
 
-// Total PHT counters for Global predictor: 2^16
 // Total PHT size for global predictor = 2^16 * 2 bits/counter = 2^17 bits = 16KB
 // GHR size for global predictor: 32 bits
 
+// Total PHT counters for Global predictor: 2^16
 // Total PHT counters for local predictor: 2^16
 // Total PHT size for local predictor = 2^16 * 2 bits/counter = 2^17 bits = 16KB
 // Total BHT size for local predictor = 2^11 * 16 bits/counter = 2^15 bits = 4KB
@@ -44,12 +50,10 @@ PREDICTOR::PREDICTOR(void){
   historyLength    = HIST_LEN;
   ghr              = 0;
   numPhtEntries    = (1<< HIST_LEN);
-
   pht = new UINT32[numPhtEntries];
-  GA = new UINT32[DIM2];
+  GA = new int[DIM3];
 
-
-  for(UINT32 l=0; l< DIM2; l++){
+  for(UINT32 l=0; l< DIM3; l++){
     GA[l]=128;
   }
 
@@ -83,38 +87,32 @@ PREDICTOR::PREDICTOR(void){
   dim1 = DIM1;
   dim2 = DIM2;
   dim3 = DIM3;
-  //w = new UINT32[dim1][dim2][dim3];
-  //int ***w;
 
-  for (UINT32 i =0; i<dim1; i++){
-    for(UINT32 j=0; j<dim2; j++){
-      for(UINT32 k=0; k<dim3; k++){
-        w[i][j][k]=0;
-      }
-    }
+  // Initialization for percetron predictor
+  w = new int **[DIM1];
+  // std::cout << "first level w" << '\n';
+  for (UINT32 i =0; i< DIM1; i++){
+    w[i] = new int*[DIM2];
+    // std::cout << "second level w" << '\n';
+    for(UINT32 j=0; j<DIM2; j++){
+      w[i][j] = new int[DIM3];
+        }
    }
 
-  // The following code still have some probelm
-  // w = new int **[DIM1];
-  // for (UINT32 i =0; i<DIM1; i++){
-  //   w[i] = new int*[DIM2];
-  //   for(UINT32 j=0; j<DIM2; j++){
-  //     w[i][j] = new int[DIM3];
-  //       }
-  //  }
-  //
-  //  for (UINT32 i =0; i<DIM1; i++){
-  //    for(UINT32 j=0; j<DIM2; j++){
-  //      for(UINT32 k=0; k<DIM3; k++){
-  //        w[i][j][k]=0;
-  //      }
-  //    }
-  //   }
+   for (UINT32 i =0; i<DIM1; i++){
+     for(UINT32 j=0; j<DIM2; j++){
+       for(UINT32 k=0; k<DIM3; k++){
+         w[i][j][k]=0;
+       }
+     }
+    }
+
+    GHR = new int[DIM3];
+    for (UINT32 i=0; i<DIM3; i++){
+      GHR[i]=1;
+    }
 
 }
-
-
-
 
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
@@ -125,12 +123,14 @@ bool PREDICTOR::GetPrediction(UINT32 PC){
   //cout << "PC Is " << PC << endl;
   if (predictorChooseCounter[pCC] < 2) {
         //use global predictor
-       //GetPerceptronPrediction(PC);
-       GetLocalPrediction(PC);
+      //  GetLocalPrediction(PC);
+       GetPerceptronPrediction(PC);
+       //std::cout << "use perceptron" << '\n';
   } else {
       //use local predictor
+      // GetPerceptronPrediction(PC);
+      //std::cout << "use local" << '\n';
       GetLocalPrediction(PC);
-      //GetPerceptronPrediction(PC);
   }
 //return NOT_TAKEN;
 
@@ -139,24 +139,30 @@ bool PREDICTOR::GetPrediction(UINT32 PC){
 
 bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
   //int DIM1 = 2^PERCEPTRON_HIST_LEN;
-  output = w[PC % DIM1][0][0];
-  for (UINT32 i=0; i<PERCEPTRON_HIST_LEN; i++){
-    UINT32 bitStatus = (ghr >> i) & 1;
-    //cout << "bitStatus is " << bitStatus << endl;
-    UINT32 address = (1<<8) & GA[i];
+  output = w[(PC & 0x3FF) ][0][0];
+  // std::cout << "output is " << output << '\n';
+  for (UINT32 i=0; i<DIM3; i++){
+    // UINT32 bitStatus = (ghr >> ) & 1;
+    UINT32 bitStatus = (GHR[i]==1);
+    // cout << "bitStatus is " << bitStatus << endl;
+    UINT32 address = 0xff & GA[i];
     //cout << "GA_I is " << GA[i] << endl;
-    // cout << "GA" << i << "is " << GA[i] << endl;
+    // cout << "address is " << address << endl;
     //UINT32 address = 3;
     if (bitStatus == 1){
-      output = output + w[PC % DIM1][address][i];
+      output = output + w[(PC & 0x3FF) ][address][i];
+      // std::cout << "output is " << output << '\n';
     } else{
-      output = output - w[PC % DIM1][address][i];
+      output = output - w[(PC & 0x3FF) ][address][i];
+      // std::cout << "output is " << output << '\n';
     }
   }
   // cout << "output is " << output << endl;
-  if (output >= 5){
+  if (output >= OUTPUT_THRESHOLD){
    return TAKEN;
+   output = 1;
   } else {
+    output = -1;
    return NOT_TAKEN;
   }
 }
@@ -177,7 +183,9 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
 bool   PREDICTOR::GetLocalPrediction(UINT32 PC){
     UINT32 bhtIndex   = (PC >> (32-bht_bit_size));
     UINT16 bht_result = bht[bhtIndex];
+    //cout << "bhtIndex is " << bht_result << endl;
     UINT32 pht_local_index = (PC^(UINT32)(bht_result))% (numPhtLocalEntries);
+    //std::cout << "pht local index is " << pht_local_index << '\n';
 
     if(pht_local[pht_local_index] > PHT_LOCAL_CTR_MAX/2){
         return TAKEN;
@@ -188,8 +196,13 @@ bool   PREDICTOR::GetLocalPrediction(UINT32 PC){
 
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
+int PREDICTOR::sig(int val){
 
+  return (val>0)-(val<0);
+}
 void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT32 branchTarget){
+  // std::cout << "sig(-2) is " << sig(-2) << '\n';
+
 
   // UINT32 phtIndex   = (PC^ghr) % (numPhtEntries);
   // UINT32 phtCounter = pht[phtIndex];
@@ -236,49 +249,76 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
   //void train(UINT32 PC, bool resolveDir, int output, int & w[][][]);
   //void train(UINT32 PC, bool resolveDir, int output, int   w[dim1][dim2][dim3]){
   //int output = 0;
-  int theta =100;
-  // int dim1 = 10;
-  if ((output >0) || (output < theta)){
+  int theta =70;
+  // int dim1 = 10
+  int result;
+  if (resolveDir==TAKEN){
+    result = 1;
+  } else{
+    result = -1;
+  }
+
+  //output = 1;
+  if (sig(output)!=result || (output < theta)){
     if (resolveDir == TAKEN){
-      w[PC % DIM1][0][0] = max(w[PC % DIM1][0][0] + 1, 127);
+    w[(PC & 0x3FF) ][0][0] = min(w[(PC & 0x3FF) ][0][0] + 1, 127);
+
     } else{
-      w[PC % DIM1][0][0] = min(w[PC % DIM1][0][0] - 1, -128);
+    w[(PC & 0x3FF) ][0][0] = max(w[(PC & 0x3FF) ][0][0] - 1, -128);
     }
 
     //UINT32 address = ((1<<8) & GA[i]) % 256;
     //address = 1;
-    for(int i=0; i< 1; i++){
-      UINT32 address = ((1<<8) & GA[i]) % 256;
+    for(int i=0; i< DIM3; i++){
+      UINT32 address = (0xff & GA[i]) % 256;
+      // cout << "address is " << address << endl;
       //UINT32 address = 1;
-      if (((ghr>>1) & 1)==1){
+      //if (((ghr >> i) & 1)==1){
+      if ((GHR[i]==1)){
         // if (1==1){
-        w[PC % DIM1][address][i] = max(w[PC % DIM1][address][i]+1, 127);
+      w[(PC & 0x3FF) ][address][i] = min(w[(PC & 0x3FF) ][address][i]+1, 127);
+      // cout << "w at " << PC & 0x3FF << address << i << " is "
+      // cout << w[(PC & 0x3FF)][address][i] <<endl;
       } else{
-        w[PC % DIM1][address][i] = min(w[PC % DIM1][address][i]-1, -128);
+      w[(PC & 0x3FF) ][address][i] = max(w[(PC & 0x3FF) ][address][i]-1, -128);
       }
     }
   }
 
+
   int GA_temp[DIM2];
-  for(int i=1; i <DIM2; i++){
+  for(int i=1; i <DIM3; i++){
     GA_temp[i]=GA[i-1];
   }
-  UINT32 address = ((1<<8) & PC) % 256;
+  UINT32 address = (PC & 0x3FF) ;
+  // cout << "address is " << address << endl;
   GA_temp[0]=address;
-  for (int i=0; i<DIM2; i++){
+  for (int i=0; i<DIM3; i++){
   GA[i] = GA_temp[i];
-  //cout <<"GA " << i << "is" << GA[i] << endl;
+  // cout <<"GA " << i << "is" << GA[i] << endl;
 }
-   ghr = (ghr << 1);
 
-  if(resolveDir == TAKEN){
-    ghr++;
+  // std::cout << "ghr is " << ghr << '\n';
+  for (int i=DIM3-1; i>0; i--){
+    GHR[i] = GHR[i-1];
   }
+  if (resolveDir == TAKEN){
+    GHR[0] = 1;
+  } else{
+    GHR[0] = -1;
+  }
+
+  // ghr = (ghr << 1);
+  // if(resolveDir == TAKEN){
+  //   ghr++;
+  // std::cout << "ghr is " << ghr << '\n';
+  // std::cout << "ghr is " << ghr << '\n';
 
 
   //update the BHT and PHT for local branch predictor
   //update the PHT_LOCAL
   UINT32 bhtIndex   = (PC >> (32-bht_bit_size));
+  // cout << "bhtIndex is " << bhtIndex << endl;
   UINT16 bht_result = bht[bhtIndex];
   UINT32 pht_local_index = (PC^(UINT32)(bht_result))% (numPhtLocalEntries);
   UINT32 pht_local_counter = pht_local[pht_local_index];
@@ -301,7 +341,7 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
 void    PREDICTOR::TrackOtherInst(UINT32 PC, OpType opType, UINT32 branchTarget){
 
   // This function is called for instructions which are not
-  // conditional branches, just in case someone decides to design
+  // conditional branches, just in case someone decides to desig
   // a predictor that uses information from such instructions.
   // We expect most contestants to leave this function untouched.
 

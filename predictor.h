@@ -3,13 +3,17 @@
 
 #include "utils.h"
 #include "tracer.h"
+#include <cmath>
 
 #define UINT16      unsigned short int
 #define HIST_LEN   6
-#define PERCEPTRON_HIST_LEN 7
-#define DIM1 2^PERCEPTRON_HIST_LEN
-#define DIM2 PERCEPTRON_HIST_LEN
-#define DIM3 PERCEPTRON_HIST_LEN
+// #define PERCEPTRON_HIST_LEN 12
+// #define PERCEPTRON_BIT_SIZE 8
+// #define DIM1 pow(2, PERCEPTRON_HIST_LEN)
+// #define DIM2 pow(2, PERCEPTRON_BIT_SIZE)
+// #define DIM1 4096
+// #define DIM2 256
+// #define DIM3 18
 
 
 // #define HIST_LEN   5
@@ -39,14 +43,11 @@ class PREDICTOR{
   // UINT32 dim3 = HIST_LEN;
   //UINT32*** w;
   //UINT32 w[2^7][16][5];
-  UINT32 *GA;
+  int *GA;
   int output;
-  int w[DIM1][DIM2][DIM3];
-
-
-
-  //int ***w;
-
+  //int w[DIM1][DIM2][DIM3];
+  int ***w;
+  int *GHR;
   //add for local predictor
   //local pattern history table
   //UINT32 pht_local_bit_size;
@@ -69,7 +70,7 @@ class PREDICTOR{
  public:
 
   // The interface to the four functions below CAN NOT be changed
-
+  int sig(int val);
   PREDICTOR(void);
   bool    GetPrediction(UINT32 PC);
 
