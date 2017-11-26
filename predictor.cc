@@ -1,6 +1,10 @@
 #include "predictor.h"
 #include <algorithm>    // std::max
+#include <fstream>
+#include <iostream>
 #include <cmath>
+#include <unistd.h>
+
 #define PHT_CTR_MAX  3
 //chuan: for tournament predictor
 #define TOURNAMENT_CTR_MAX 3
@@ -46,7 +50,16 @@
 /////////////////////////////////////////////////////////////
 
 PREDICTOR::PREDICTOR(void){
+  ifstream fin;
+  int HIST_LEN;
+  fin.open("intList1.txt", ios::in);
+  if (!fin.is_open()){
+    std::cerr << "unable to open file intList1.txt" << '\n';
+    exit(10);
+  }
 
+  fin >> HIST_LEN;
+  fin.close();
   historyLength    = HIST_LEN;
   ghr              = 0;
   numPhtEntries    = (1<< HIST_LEN);
@@ -89,13 +102,13 @@ PREDICTOR::PREDICTOR(void){
   dim3 = DIM3;
 
   // Initialization for percetron predictor
-  w = new int **[DIM1];
+  w = new double **[DIM1];
   // std::cout << "first level w" << '\n';
   for (UINT32 i =0; i< DIM1; i++){
-    w[i] = new int*[DIM2];
+    w[i] = new double*[DIM2];
     // std::cout << "second level w" << '\n';
     for(UINT32 j=0; j<DIM2; j++){
-      w[i][j] = new int[DIM3];
+      w[i][j] = new double[DIM3];
         }
    }
 
@@ -140,7 +153,8 @@ bool PREDICTOR::GetPrediction(UINT32 PC){
 bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
   //int DIM1 = 2^PERCEPTRON_HIST_LEN;
   output = w[(PC & 0x3FF) ][0][0];
-  // std::cout << "output is " << output << '\n';
+  // output = 0;
+  // std::cout << "output in first part of get perceptron function is " << output << '\n';
   for (UINT32 i=0; i<DIM3; i++){
     // UINT32 bitStatus = (ghr >> ) & 1;
     UINT32 bitStatus = (GHR[i]==1);
@@ -150,34 +164,27 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
     // cout << "address is " << address << endl;
     //UINT32 address = 3;
     if (bitStatus == 1){
+      // sleep(0.1);
+      // cout << "w[(PC & 0x3FF) ][address][i] is " << w[(PC & 0x3FF) ][address][i];
       output = output + w[(PC & 0x3FF) ][address][i];
-      // std::cout << "output is " << output << '\n';
+      // std::cout << "weight is " << w[(PC & 0x3FF) ][address][i] << '\n';
+      // std::cout << "output in + is " << output << '\n';
     } else{
       output = output - w[(PC & 0x3FF) ][address][i];
-      // std::cout << "output is " << output << '\n';
+      // std::cout << "weight is " << w[(PC & 0x3FF) ][address][i] << '\n';
+      // std::cout << "output in - is " << output << '\n';
+
     }
   }
-  // cout << "output is " << output << endl;
+  // cout << "output in GetPerceptronPrediction is " << output << endl;
   if (output >= OUTPUT_THRESHOLD){
    return TAKEN;
-   output = 1;
+  //  output = 1;
   } else {
-    output = -1;
+    // output = -1;
    return NOT_TAKEN;
   }
 }
-
-//for global predictor
-//bool   PREDICTOR::GetGlobalPrediction(UINT32 PC){
-//     UINT32 phtIndex   = (PC^ghr) % (numPhtEntries);
-//     UINT32 phtCounter = pht[phtIndex];
-//     //printf("%s\n", PC);
-//     if(phtCounter > PHT_CTR_MAX/2){
-//         return TAKEN;
-//     }else{
-//         return NOT_TAKEN;
-//     }
-// }
 
 //for local predictor
 bool   PREDICTOR::GetLocalPrediction(UINT32 PC){
@@ -201,26 +208,6 @@ int PREDICTOR::sig(int val){
   return (val>0)-(val<0);
 }
 void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT32 branchTarget){
-  // std::cout << "sig(-2) is " << sig(-2) << '\n';
-
-
-  // UINT32 phtIndex   = (PC^ghr) % (numPhtEntries);
-  // UINT32 phtCounter = pht[phtIndex];
-
-  // update the PHT for global predictor
-  // if(resolveDir == TAKEN){
-  //   pht[phtIndex] = SatIncrement(phtCounter, PHT_CTR_MAX);
-  // }
-  // else{
-  //   pht[phtIndex] = SatDecrement(phtCounter);
-  // }
-
-  // update the GHR for global predictor
-  // ghr = (ghr << 1);
-  //
-  // if(resolveDir == TAKEN){
-  //   ghr++;
-  // }
 
 
   // update the tournament counter
@@ -248,9 +235,7 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
   //update perceptron predictor result
   //void train(UINT32 PC, bool resolveDir, int output, int & w[][][]);
   //void train(UINT32 PC, bool resolveDir, int output, int   w[dim1][dim2][dim3]){
-  //int output = 0;
-  int theta =70;
-  // int dim1 = 10
+  int theta =7;
   int result;
   if (resolveDir==TAKEN){
     result = 1;
@@ -259,12 +244,14 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
   }
 
   //output = 1;
+  // cout << "output in update function is " << output << endl;
   if (sig(output)!=result || (output < theta)){
     if (resolveDir == TAKEN){
-    w[(PC & 0x3FF) ][0][0] = min(w[(PC & 0x3FF) ][0][0] + 1, 127);
+    w[(PC & 0x3FF) ][0][0] = min(w[(PC & 0x3FF) ][0][0], 127.0);
 
     } else{
-    w[(PC & 0x3FF) ][0][0] = max(w[(PC & 0x3FF) ][0][0] - 1, -128);
+    w[(PC & 0x3FF) ][0][0] = max(w[(PC & 0x3FF) ][0][0], -128.0);
+    // cout << "1: resolverDir NOT taken!" << endl;
     }
 
     //UINT32 address = ((1<<8) & GA[i]) % 256;
@@ -272,15 +259,15 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
     for(int i=0; i< DIM3; i++){
       UINT32 address = (0xff & GA[i]) % 256;
       // cout << "address is " << address << endl;
-      //UINT32 address = 1;
       //if (((ghr >> i) & 1)==1){
       if ((GHR[i]==1)){
         // if (1==1){
-      w[(PC & 0x3FF) ][address][i] = min(w[(PC & 0x3FF) ][address][i]+1, 127);
+      w[(PC & 0x3FF) ][address][i] = min(w[(PC & 0x3FF) ][address][i], 127.0);
       // cout << "w at " << PC & 0x3FF << address << i << " is "
       // cout << w[(PC & 0x3FF)][address][i] <<endl;
       } else{
-      w[(PC & 0x3FF) ][address][i] = max(w[(PC & 0x3FF) ][address][i]-1, -128);
+      w[(PC & 0x3FF) ][address][i] = max(w[(PC & 0x3FF) ][address][i], -128.0);
+      // cout << "2: resolverDir NOT taken!" << endl;
       }
     }
   }
@@ -307,12 +294,6 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
   } else{
     GHR[0] = -1;
   }
-
-  // ghr = (ghr << 1);
-  // if(resolveDir == TAKEN){
-  //   ghr++;
-  // std::cout << "ghr is " << ghr << '\n';
-  // std::cout << "ghr is " << ghr << '\n';
 
 
   //update the BHT and PHT for local branch predictor

@@ -46,7 +46,7 @@ class PREDICTOR{
   int *GA;
   int output;
   //int w[DIM1][DIM2][DIM3];
-  int ***w;
+  double ***w;
   int *GHR;
   //add for local predictor
   //local pattern history table
