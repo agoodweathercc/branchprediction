@@ -10,7 +10,11 @@
 #define TOURNAMENT_CTR_MAX 3
 #define PHT_CTR_INIT 2
 
-#define HIST_LEN   6
+// #define HIST_LEN   6
+int HIST_LEN;
+int theta;
+
+
 #define TOUR_LEN   10
 #define BHT_BIT_SIZE 11
 #define BHT_HIST_LENGTH 12
@@ -23,10 +27,11 @@
 #define OUTPUT_THRESHOLD 3
 // #define DIM1 pow(2, PERCEPTRON_HIST_LEN)
 // #define DIM2 pow(2, PERCEPTRON_BIT_SIZE)
-#define DIM1 1024
+#define DIM1 4096
 #define DIM2 256
-#define DIM3 10
+#define DIM3 60
 #define H 1289281
+
 
 /////////////// STORAGE BUDGET JUSTIFICATION ////////////////
 // Total storage budget: 52KB + 32 bits
@@ -51,7 +56,7 @@
 
 PREDICTOR::PREDICTOR(void){
   ifstream fin;
-  int HIST_LEN;
+  // int HIST_LEN;
   fin.open("intList1.txt", ios::in);
   if (!fin.is_open()){
     std::cerr << "unable to open file intList1.txt" << '\n';
@@ -59,7 +64,9 @@ PREDICTOR::PREDICTOR(void){
   }
 
   fin >> HIST_LEN;
+  std::cout << "HIST_LEN is " << HIST_LEN << '\n';
   fin.close();
+
   historyLength    = HIST_LEN;
   ghr              = 0;
   numPhtEntries    = (1<< HIST_LEN);
@@ -131,6 +138,7 @@ PREDICTOR::PREDICTOR(void){
 /////////////////////////////////////////////////////////////
 
 bool PREDICTOR::GetPrediction(UINT32 PC){
+  // std::cout << "HIST_LEN is " << HIST_LEN << '\n';
   //Add for tournament predictor: when 00, 01, use global predictor; when 10, 11, use local predictor
   UINT32 pCC   = PC >> (32-TOUR_LEN);
   //cout << "PC Is " << PC << endl;
@@ -143,7 +151,9 @@ bool PREDICTOR::GetPrediction(UINT32 PC){
       //use local predictor
       // GetPerceptronPrediction(PC);
       //std::cout << "use local" << '\n';
-      GetLocalPrediction(PC);
+      // GetLocalPrediction(PC);
+      GetPerceptronPrediction(PC);
+
   }
 //return NOT_TAKEN;
 
@@ -171,9 +181,6 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
       // std::cout << "output in + is " << output << '\n';
     } else{
       output = output - w[(PC & 0x3FF) ][address][i];
-      // std::cout << "weight is " << w[(PC & 0x3FF) ][address][i] << '\n';
-      // std::cout << "output in - is " << output << '\n';
-
     }
   }
   // cout << "output in GetPerceptronPrediction is " << output << endl;
@@ -231,11 +238,20 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
       }
   }
 
+  ifstream fin;
+  // int HIST_LEN;
+  fin.open("intList1.txt", ios::in);
+  if (!fin.is_open()){
+    std::cerr << "unable to open file intList1.txt" << '\n';
+    exit(10);
+  }
 
+  fin >> HIST_LEN;
+  fin.close();
   //update perceptron predictor result
   //void train(UINT32 PC, bool resolveDir, int output, int & w[][][]);
   //void train(UINT32 PC, bool resolveDir, int output, int   w[dim1][dim2][dim3]){
-  int theta =7;
+  theta =130;
   int result;
   if (resolveDir==TAKEN){
     result = 1;
@@ -245,12 +261,12 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
 
   //output = 1;
   // cout << "output in update function is " << output << endl;
-  if (sig(output)!=result || (output < theta)){
+  if (sig(output)!=result || (abs(output) < theta)){
     if (resolveDir == TAKEN){
-    w[(PC & 0x3FF) ][0][0] = min(w[(PC & 0x3FF) ][0][0], 127.0);
+    w[(PC & 0x3FF) ][0][0] = min(w[(PC & 0x3FF) ][0][0]+1, 127.0);
 
     } else{
-    w[(PC & 0x3FF) ][0][0] = max(w[(PC & 0x3FF) ][0][0], -128.0);
+    w[(PC & 0x3FF) ][0][0] = max(w[(PC & 0x3FF) ][0][0]-1, -128.0);
     // cout << "1: resolverDir NOT taken!" << endl;
     }
 
@@ -262,12 +278,13 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
       //if (((ghr >> i) & 1)==1){
       if ((GHR[i]==1)){
         // if (1==1){
-      w[(PC & 0x3FF) ][address][i] = min(w[(PC & 0x3FF) ][address][i], 127.0);
+      w[(PC & 0x3FF) ][address][i] = min(w[(PC & 0x3FF) ][address][i]+0.02*HIST_LEN, 127.0);
       // cout << "w at " << PC & 0x3FF << address << i << " is "
       // cout << w[(PC & 0x3FF)][address][i] <<endl;
+      // cout << "weight is increased by" << HIST_LEN/100 << endl;
       } else{
-      w[(PC & 0x3FF) ][address][i] = max(w[(PC & 0x3FF) ][address][i], -128.0);
-      // cout << "2: resolverDir NOT taken!" << endl;
+      w[(PC & 0x3FF) ][address][i] = max(w[(PC & 0x3FF) ][address][i]-0.01*HIST_LEN, -128.0);
+      // std::cout << "nothing" << '\n';
       }
     }
   }
