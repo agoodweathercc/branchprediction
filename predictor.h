@@ -74,6 +74,7 @@ class PREDICTOR{
   // The interface to the four functions below CAN NOT be changed
   int HIST_LEN;
   int theta;
+  int num_of_weights;
   int sig(double val);
   PREDICTOR(void);
   bool    GetPrediction(UINT32 PC);

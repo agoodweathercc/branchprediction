@@ -18,33 +18,45 @@
 
 #define PERCEPTRON_HIST_LEN 12
 #define PERCEPTRON_BIT_SIZE 8
-#define OUTPUT_THRESHOLD 3
+#define OUTPUT_THRESHOLD 4
 // #define DIM1 pow(2, PERCEPTRON_HIST_LEN)
 // #define DIM2 pow(2, PERCEPTRON_BIT_SIZE)
-#define DIM1 4096
-#define hex_dim1 0xFFF
-#define DIM2 256
-#define hex_dim2 0xFF
-#define DIM3 60
-#define H1 511387
+// #define DIM1 4096
+// #define hex_dim1 0xFFF
+#define DIM1 2048
+#define hex_dim1 0x7FF
+
+// #define DIM2 256
+// #define hex_dim2 0xFF
+#define DIM2 512
+#define hex_dim2 0x1FF
+// #define DIM2 2048
+// #define hex_dim2 0x7FF
+
+
+#define DIM3 80
+// #define H1 511387
+#define H1 511361
 #define H2 660509
 #define H3 1289381
-
+#define num_of_weights 32000
+#define weight_threshold 128
+#define THETA 200
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
 
 PREDICTOR::PREDICTOR(void){
-  ifstream fin;
-  // int HIST_LEN;
-  fin.open("intList1.txt", ios::in);
-  if (!fin.is_open()){
-    std::cerr << "unable to open file intList1.txt" << '\n';
-    exit(10);
-  }
-
-  fin >> HIST_LEN;
-  std::cout << "HIST_LEN is " << HIST_LEN << '\n';
-  fin.close();
+  // ifstream fin;
+  // // int HIST_LEN;
+  // fin.open("intList1.txt", ios::in);
+  // if (!fin.is_open()){
+  //   std::cerr << "unable to open file intList1.txt" << '\n';
+  //   exit(10);
+  // }
+  //
+  // fin >> HIST_LEN;
+  // std::cout << "HIST_LEN is " << HIST_LEN << '\n';
+  // fin.close();
 
   historyLength    = HIST_LEN;
   ghr              = 0;
@@ -96,7 +108,7 @@ bool PREDICTOR::GetPrediction(UINT32 PC){
 
 bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
   //int DIM1 = 2^PERCEPTRON_HIST_LEN;
-  int hash_index = ((PC & (UINT32)(hex_dim1)) ^ 0 ^ 0) % (DIM1 * DIM2 * DIM3);
+  int hash_index = ((PC & (UINT32)(hex_dim1)) ^ 0 ^ 0) % (num_of_weights);
   int output = 0;
   output = W[hash_index];
   for (UINT32 i=0; i<DIM3; i++){
@@ -104,8 +116,8 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
     int hi = (PC & hex_dim1)*H1;
     int hj = address * H2;
     int hk = i * H3;
-    // int hash_index = (hi ^ hj ^ hk) % (DIM1 * DIM2 * DIM3);
-    hash_index = ((UINT32)(hi) ^ (UINT32) (hj) ^(UINT32) (hk)) % (DIM1 * DIM2 * DIM3);
+    // int hash_index = (hi ^ hj ^ hk) % (num_of_weights);
+    hash_index = ((UINT32)(hi) ^ (UINT32) (hj) ^(UINT32) (hk)) % (num_of_weights);
     // std::cout << "hash_index is " <<  hash_index << '\n';
     if (GHR[i]==1){
       // sleep(0.1);
@@ -113,12 +125,12 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
       output = output + W[hash_index];
       // std::cout << "weight+ is " << W[hash_index]<< '\n';
       // std::cout << "output in + is " << output << '\n';
-      // cout << "output in GetPerceptronPrediction is " << output << endl;
+      // cout << "output+ in GetPerceptronPrediction is " << output << endl;
     } else{
       // output = output - w[(PC & hex_dim1) ][address][i];
       output = output - W[hash_index];
       // std::cout << "weight- is " << W[hash_index]<< '\n';
-      // cout << "output in GetPerceptronPrediction is " << output << endl;
+      // cout << "output- in GetPerceptronPrediction is " << output << endl;
 
     }
 
@@ -135,7 +147,7 @@ bool PREDICTOR::GetPerceptronPrediction(UINT32 PC){
   //  std::cout << "PC" << PC << "is being TAKEN"<< '\n';
    return TAKEN;
   } else {
-  //  count(W, (double)(DIM1*DIM2*DIM3));
+    // count(W, (double)(DIM1*DIM2*DIM3));
   //  std::cout << "PC" << PC << "is NOT_TAKEN"<< '\n';
    return NOT_TAKEN;
   }
@@ -150,18 +162,22 @@ int PREDICTOR::sig(double val){
 
 void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT32 branchTarget){
 
-  ifstream fin;
-  // int HIST_LEN;
-  fin.open("intList1.txt", ios::in);
-  if (!fin.is_open()){
-    std::cerr << "unable to open file intList1.txt" << '\n';
-    exit(10);
-  }
+  // ifstream fin;
+  // // int num_of_weights;
+  // // int HIST_LEN;
+  // fin.open("intList1.txt", ios::in);
+  // if (!fin.is_open()){
+  //   std::cerr << "unable to open file intList1.txt" << '\n';
+  //   exit(10);
+  // }
 
-  fin >> HIST_LEN;
-  fin.close();
+  // fin >> num_of_weights;
+  // num_of_weights = 10000;
+  // std::cout << "num_of_weights is now" << num_of_weights << '\n';
+  // fin.close();
+
   //update perceptron predictor result
-  theta =13;
+  theta = THETA;
   int result;
   if (resolveDir==TAKEN){
     result = 1;
@@ -171,15 +187,15 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
 
   // cout << "output in update function is " << output << endl;
 
-  int hash_index = ((UINT32)(PC & hex_dim1) ^ 0 ^ 0) % (DIM1 * DIM2 * DIM3);
+  int hash_index = ((UINT32)(PC & hex_dim1) ^ 0 ^ 0) % (num_of_weights);
   // std::cout << "hash_index is " << hash_index << '\n';
   if (sig(output)!=result || (abs(output) < theta)){
     if (result == 1){
 
     // w[(PC & hex_dim1) ][0][0] = min(w[(PC & hex_dim1) ][0][0]+1, 127.0);
-     W[hash_index] = min(W[hash_index]+1*result, 127);
+     W[hash_index] = min(W[hash_index]+1*result, weight_threshold);
     } else{
-      W[hash_index] = max(W[hash_index]-1*result, -128);
+      W[hash_index] = max(W[hash_index]-1*result, -weight_threshold);
     // w[(PC & hex_dim1) ][0][0] = max(w[(PC & hex_dim1) ][0][0]-1, -128.0);
     // cout << "1: resolverDir NOT taken!" << endl;
     }
@@ -190,15 +206,15 @@ void  PREDICTOR::UpdatePredictor(UINT32 PC, bool resolveDir, bool predDir, UINT3
       int hi = (PC & hex_dim1)*H1;
       int hj = address * H2;
       int hk = i * H3;
-      int hash_index = ((UINT32)(hi) ^ (UINT32) (hj) ^(UINT32) (hk)) % (DIM1 * DIM2 * DIM3);
+      int hash_index = ((UINT32)(hi) ^ (UINT32) (hj) ^(UINT32) (hk)) % (num_of_weights);
       if ((GHR[i]==1)){
       // w[(PC & hex_dim1) ][address][i] = min(w[(PC & hex_dim1) ][address][i], 127.0);
-      W[hash_index] = min(W[hash_index]+1*result, 127);
+      W[hash_index] = max(min(W[hash_index]+1*result,weight_threshold), -weight_threshold);
       // std::cout << "Weight+ is " << W[hash_index] << '\n';
 
       } else{
       // w[(PC & hex_dim1) ][address][i] = max(w[(PC & hex_dim1) ][address][i], -128.0);
-      W[hash_index] = max(W[hash_index]-1*result, -128);
+      W[hash_index] = min(max(W[hash_index]-1*result, -weight_threshold), weight_threshold);
       // std::cout << "Weight- is " << W[hash_index] << '\n';
 
       }
