@@ -22,10 +22,10 @@
 // #define hex_dim1 0xFFF
 // #define DIM1 32768
 // #define hex_dim1 0x7FFF
-#define DIM1 4096
+#define DIM1 6144
 #define hex_dim1 0x1FFFF
 
-#define DIM2 32
+#define DIM2 37
 #define hex_dim2 0xFF
 // #define DIM2 512
 // #define hex_dim2 0x1FF
@@ -33,17 +33,17 @@
 // #define hex_dim2 0x7FF
 
 
-#define DIM3 70
+#define DIM3 59
 // #define H1 511387
 #define H1 511361
 #define H2 660509
 #define H3 1289381
 #define num_of_weights 64000
-#define num_of_bias 500
-#define weight_threshold 64
+#define num_of_bias 1000
+#define weight_threshold 128
 #define bias_weight_threshold 128
-#define OUTPUT_THRESHOLD 80
-#define THETA 150
+#define OUTPUT_THRESHOLD 25
+#define THETA 250;
 
 /////////////// STORAGE BUDGET JUSTIFICATION ////////////////
 // Total storage budget: 52KB + 32 bits
@@ -165,7 +165,7 @@ bool  PREDICTOR::GetPerceptronPrediction(UINT32 PC){
   // output = 0;
   // std::cout << "output is " << w1[index] << " at hash_index " << index << '\n';
   // output = w1[index];
-// output = 40;
+output = 40;
   for (UINT32 i=0; i<DIM3; i++){
     // UINT32 address = hex_dim2 & GA[i];
     UINT32 address = (GA[i])%DIM2;

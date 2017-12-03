@@ -3,22 +3,9 @@
 
 #include "utils.h"
 #include "tracer.h"
-#include <cmath>
 
 #define UINT16      unsigned short int
-// #define HIST_LEN   6
-// #define PERCEPTRON_HIST_LEN 12
-// #define PERCEPTRON_BIT_SIZE 8
-// #define DIM1 pow(2, PERCEPTRON_HIST_LEN)
-// #define DIM2 pow(2, PERCEPTRON_BIT_SIZE)
-// #define DIM1 4096
-// #define DIM2 256
-// #define DIM3 18
 
-
-// #define HIST_LEN   5
-// #define DIM1 2^HIST_LEN
-// #define DIM2 256
 
 
 /////////////////////////////////////////////////////////////
@@ -35,20 +22,7 @@ class PREDICTOR{
   UINT32  *pht;          // pattern history table
   UINT32  historyLength; // history length
   UINT32  numPhtEntries; // entries in pht
-  UINT32 dim1;
-  UINT32 dim2;
-  UINT32 dim3;
-  //UINT32 dim1 = DIM1;
-  // UINT32 dim2 = DIM2;
-  // UINT32 dim3 = HIST_LEN;
-  //UINT32*** w;
-  //UINT32 w[2^7][16][5];
-  int *GA;
-  int *GHR;
-  int output;
-  //int w[DIM1][DIM2][DIM3];
-  double ***w;
-  int *W;
+
 
   //add for local predictor
   //local pattern history table
@@ -66,17 +40,27 @@ class PREDICTOR{
   UINT32 *predictorChooseCounter;
   UINT32 numTournamentCounter;
 
+  //for perceptron
+  UINT32 *GA;
+  int *GHR;
+  int output;
+  int *W;
+  int *w1;
+
+
 
 
 
  public:
 
   // The interface to the four functions below CAN NOT be changed
-  int HIST_LEN;
-  int theta;
-  int num_of_weights;
-  int sig(double val);
+
   PREDICTOR(void);
+   int HIST_LEN;
+   int theta;
+   int num_of_weights;
+   int sig(double val);
+
   bool    GetPrediction(UINT32 PC);
 
   //add for tournament predictor
